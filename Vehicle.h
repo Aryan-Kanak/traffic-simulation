@@ -6,10 +6,10 @@
 class Road;
 
 class Vehicle {
-private:
-	const float height;
-	const float length;
-	const float width;
+protected:
+	float height;
+	float length;
+	float width;
 	static const float globalMaxVelocity;
 	static const float slowVelocity;
 

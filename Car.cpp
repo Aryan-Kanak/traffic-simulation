@@ -7,14 +7,19 @@
 #include "Car.h"
 #include "Road.h"
 #include "Shader.h"
+#include "Moonlight.h"
 
 const float Car::height = 0.6f;
 const float Car::length = 1.0f;
 const float Car::width = 0.5f;
 const float Car::globalMaxVelocity = 0.1f;
-const float Car::slowVelocity = 0.05f;
+const float Car::slowVelocity = 0.025f;
 
-Car::Car(Road *road) : shader{Shader("vertex.glsl", "fragment.glsl")}, road{road}, model{glm::mat4(1.0f)}, position{0.0f}
+Car::Car(Road *road, float position) :
+    bodyShader{Shader("lighting.vert", "lighting.frag")},
+    lightsShader{Shader("default.vert", "default.frag")},
+    gBufferShader{Shader("lighting.vert", "gBuffer.frag")},
+    road{road}, model{glm::mat4(1.0f)}, position{position}
 {
     safeDist = 1.0f;
     reactionTime = 1.0f;
@@ -27,34 +32,88 @@ Car::Car(Road *road) : shader{Shader("vertex.glsl", "fragment.glsl")}, road{road
     stopping = false;
 
     float vertices[] = {
-        -0.3f, 0.4f, 0.25f, 1.0f, 0.9f, 0.0f,
-        0.3f, 0.4f, 0.25f, 1.0f, 0.9f, 0.0f,
-        0.3f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        -0.3f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        -0.3f, 0.4f, -0.25f, 1.0f, 0.9f, 0.0f,
-        0.3f, 0.4f, -0.25f, 1.0f, 0.9f, 0.0f,
-        0.3f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        -0.3f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        -0.5f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        -0.5f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        0.5f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        0.5f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        -0.4f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        0.4f, 0.0f, 0.25f, 1.0f, 0.9f, 0.0f,
-        0.4f, -0.2f, 0.25f, 1.0f, 0.9f, 0.0f,
-        -0.4f, -0.2f, 0.25f, 1.0f, 0.9f, 0.0f,
-        -0.4f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        0.4f, 0.0f, -0.25f, 1.0f, 0.9f, 0.0f,
-        0.4f, -0.2f, -0.25f, 1.0f, 0.9f, 0.0f,
-        -0.4f, -0.2f, -0.25f, 1.0f, 0.9f, 0.0f,
-        -0.5f, 0.0f, -0.15f, 1.0f, 0.9f, 0.0f,
-        -0.5f, 0.0f, 0.15f, 1.0f, 0.9f, 0.0f,
-        -0.5f, -0.2f, 0.15f, 1.0f, 0.9f, 0.0f,
-        -0.5f, -0.2f, -0.15f, 1.0f, 0.9f, 0.0f,
-        0.5f, 0.0f, -0.15f, 1.0f, 0.9f, 0.0f,
-        0.5f, 0.0f, 0.15f, 1.0f, 0.9f, 0.0f,
-        0.5f, -0.2f, 0.15f, 1.0f, 0.9f, 0.0f,
-        0.5f, -0.2f, -0.15f, 1.0f, 0.9f, 0.0f
+        // main body
+        -0.3f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.3f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.3f, 0.4f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.3f, 0.4f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.3f, 0.4f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.3f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.3f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.3f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.3f, 0.4f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.3f, 0.4f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.3f, 0.4f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.3f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.3f, 0.4f, -0.25f, 0.0f, 1.0f, 0.0f,
+        0.3f, 0.4f, -0.25f, 0.0f, 1.0f, 0.0f,
+        0.3f, 0.4f, 0.25f, 0.0f, 1.0f, 0.0f,
+        0.3f, 0.4f, 0.25f, 0.0f, 1.0f, 0.0f,
+        -0.3f, 0.4f, 0.25f, 0.0f, 1.0f, 0.0f,
+        -0.3f, 0.4f, -0.25f, 0.0f, 1.0f, 0.0f,
+        // front window
+        -0.3f, 0.4f, 0.25f, -0.2f, 0.1f, 0.0f,
+        -0.3f, 0.4f, -0.25f, -0.2f, 0.1f, 0.0f,
+        -0.5f, 0.0f, -0.25f, -0.2f, 0.1f, 0.0f,
+        -0.3f, 0.4f, 0.25f, -0.2f, 0.1f, 0.0f,
+        -0.5f, 0.0f, -0.25f, -0.2f, 0.1f, 0.0f,
+        -0.5f, 0.0f, 0.25f, -0.2f, 0.1f, 0.0f,
+        -0.3f, 0.4f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.3f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.5f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.3f, 0.4f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.3f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.5f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        // back window
+        0.3f, 0.4f, 0.25f, 0.2f, 0.1f, 0.0f,
+        0.3f, 0.4f, -0.25f, 0.2f, 0.1f, 0.0f,
+        0.5f, 0.0f, -0.25f, 0.2f, 0.1f, 0.0f,
+        0.3f, 0.4f, 0.25f, 0.2f, 0.1f, 0.0f,
+        0.5f, 0.0f, -0.25f, 0.2f, 0.1f, 0.0f,
+        0.5f, 0.0f, 0.25f, 0.2f, 0.1f, 0.0f,
+        0.3f, 0.4f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.3f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.5f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.3f, 0.4f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.3f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.5f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        // bottom part
+        -0.4f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.4f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.4f, -0.2f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.4f, 0.0f, 0.25f, 0.0f, 0.0f, 1.0f,
+        0.4f, -0.2f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.4f, -0.2f, 0.25f, 0.0f, 0.0f, 1.0f,
+        -0.4f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.4f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.4f, -0.2f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.4f, 0.0f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.4f, -0.2f, -0.25f, 0.0f, 0.0f, -1.0f,
+        -0.4f, -0.2f, -0.25f, 0.0f, 0.0f, -1.0f,
+        0.4f, -0.2f, 0.25f, 0.0f, -1.0f, 0.0f,
+        -0.4f, -0.2f, 0.25f, 0.0f, -1.0f, 0.0f,
+        -0.4f, -0.2f, -0.25f, 0.0f, -1.0f, 0.0f,
+        0.4f, -0.2f, 0.25f, 0.0f, -1.0f, 0.0f,
+        0.4f, -0.2f, -0.25f, 0.0f, -1.0f, 0.0f,
+        -0.4f, -0.2f, -0.25f, 0.0f, -1.0f, 0.0f,
+        -0.5f, 0.0f, -0.15f, -1.0f, 0.0f, 0.0f,
+        -0.5f, 0.0f, 0.15f, -1.0f, 0.0f, 0.0f,
+        -0.5f, -0.2f, 0.15f, -1.0f, 0.0f, 0.0f,
+        -0.5f, 0.0f, -0.15f, -1.0f, 0.0f, 0.0f,
+        -0.5f, -0.2f, 0.15f, -1.0f, 0.0f, 0.0f,
+        -0.5f, -0.2f, -0.15f, -1.0f, 0.0f, 0.0f,
+        0.5f, 0.0f, -0.15f, 1.0f, 0.0f, 0.0f,
+        0.5f, 0.0f, 0.15f, 1.0f, 0.0f, 0.0f,
+        0.5f, -0.2f, 0.15f, 1.0f, 0.0f, 0.0f,
+        0.5f, 0.0f, -0.15f, 1.0f, 0.0f, 0.0f,
+        0.5f, -0.2f, 0.15f, 1.0f, 0.0f, 0.0f,
+        0.5f, -0.2f, -0.15f, 1.0f, 0.0f, 0.0f,
+        -0.5f, -0.2f, 0.15f, 0.0f, -1.0f, 0.0f,
+        -0.5f, -0.2f, -0.15f, 0.0f, -1.0f, 0.0f,
+        0.5f, -0.2f, -0.15f, 0.0f, -1.0f, 0.0f,
+        -0.5f, -0.2f, 0.15f, 0.0f, -1.0f, 0.0f,
+        0.5f, -0.2f, 0.15f, 0.0f, -1.0f, 0.0f,
+        0.5f, -0.2f, -0.15f, 0.0f, -1.0f, 0.0f,
     };
 
     float lightVertices[] = {
@@ -92,38 +151,10 @@ Car::Car(Road *road) : shader{Shader("vertex.glsl", "fragment.glsl")}, road{road
         0.4f, -0.2f, -0.25f, 1.0f, 0.0f, 0.0f
     };
 
-    unsigned int indices[] = {
-        // main body
-        7, 6, 5,
-        5, 4, 7,
-        3, 2, 1,
-        1, 0, 3,
-        4, 5, 1,
-        1, 0, 4,
-        // front window
-        0, 4, 9,
-        0, 9, 8,
-        0, 3, 8,
-        4, 7, 9,
-        // back window
-        1, 5, 11,
-        1, 11, 10,
-        1, 2, 10,
-        5, 6, 11,
-        // bottom part
-        12, 13, 14,
-        12, 14, 15,
-        16, 17, 18,
-        16, 18, 19,
-        14, 15, 19,
-        14, 18, 19,
-        20, 21, 22,
-        20, 22, 23,
-        24, 25, 26,
-        24, 26, 27,
-        22, 23, 27,
-        22, 26, 27
-    };
+    unsigned int indices[78];
+    for (int i = 0; i < 78; ++i) {
+        indices[i] = i;
+    }
 
     unsigned int lightIndices[] {
         // headlights
@@ -154,37 +185,9 @@ Car::Car(Road *road) : shader{Shader("vertex.glsl", "fragment.glsl")}, road{road
         30, 27, 26
     };
 
-    glGenVertexArrays(1, &body_vao);
-    glBindVertexArray(body_vao);
+    bodyVertexData = VertexData(vertices, sizeof(vertices), indices, sizeof(indices));
 
-    glGenBuffers(1, &body_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, body_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &body_ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, body_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    glGenVertexArrays(1, &lights_vao);
-    glBindVertexArray(lights_vao);
-
-    glGenBuffers(1, &lights_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, lights_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(lightVertices), lightVertices, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &lights_ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lights_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(lightIndices), lightIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+    lightsVertexData = VertexData(lightVertices, sizeof(lightVertices), lightIndices, sizeof(lightIndices));
 
     updateModelMatrix();
 }
@@ -230,27 +233,90 @@ void Car::updateModelMatrix()
     float x2 = road->GetX2();
     float y1 = road->GetY1();
     float y2 = road->GetY2();
-    glm::vec2 roadDirection = glm::normalize(glm::vec2(x2 -x1, y2 - y1));
-    glm::vec2 carDirection = glm::vec2(-1.0f, 0.0f);
-    float angle = acos(glm::dot(roadDirection, carDirection));
-    glm::vec2 increment = roadDirection * (float) position;
+    glm::vec3 roadDirection = glm::normalize(glm::vec3(x2 - x1, 0.0f, y2 - y1));
+    glm::vec3 carDirection = glm::vec3(-1.0f, 0.0f, 0.0f);
+
+    glm::vec2 increment = glm::vec2(roadDirection.x, roadDirection.z) * (float) position;
     model = glm::mat4(1.0f);
-    model = glm::translate(model, glm::vec3((x1 + x2) / 2 + increment.x, -3.7f, y1 + increment.y));
-    model = glm::rotate(model, angle, glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::translate(model, glm::vec3(x1 + increment.x, -3.7f, y1 + increment.y));
+
+    float dotProduct = glm::dot(carDirection, roadDirection);
+    float rotationAngle = acos(dotProduct);
+    glm::vec3 rotationAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+    if (glm::abs(dotProduct) != 1) {
+        rotationAxis = glm::cross(carDirection, roadDirection);
+    }
+    model = glm::rotate(model, rotationAngle, rotationAxis);
 }
 
-void Car::render(const glm::mat4& view, const glm::mat4& proj)
+void Car::render(const glm::mat4& view, const glm::mat4& proj, const glm::vec3 &cameraPos)
 {
     updateModelMatrix();
-    shader.use();
 
-    shader.setUniformMatrix4fv("model", model);
-    shader.setUniformMatrix4fv("projection", proj);
-    shader.setUniformMatrix4fv("view", view);
+    // render body
+    bodyShader.use();
 
-    glBindVertexArray(body_vao);
+    bodyShader.setUniformMatrix4fv("model", model);
+    bodyShader.setUniformMatrix4fv("projection", proj);
+    bodyShader.setUniformMatrix4fv("view", view);
+    glm::mat3 normMatrix = glm::mat3(glm::transpose(glm::inverse(model)));
+    bodyShader.setUniformMatrix3fv("normMatrix", normMatrix);
+
+    bodyShader.setUniform3f("viewPos", cameraPos.x, cameraPos.y, cameraPos.z);
+
+    // set material properties
+    bodyShader.setUniform3f("material.ambient", 0.24725f, 0.1995f, 0.0745f);
+    bodyShader.setUniform3f("material.diffuse", 0.75164f, 0.60648f, 0.22648f);
+    bodyShader.setUniform3f("material.specular", 0.628281f, 0.555802f, 0.366065f);
+    bodyShader.setUniform1f("material.shininess", 51.2f);
+
+    // set moonlight properties
+    Moonlight::SetMoonlightUniforms(bodyShader);
+
+    glBindVertexArray(bodyVertexData.vao);
     glDrawElements(GL_TRIANGLES, 78, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(lights_vao);
+
+    // render lights
+    lightsShader.use();
+
+    lightsShader.setUniformMatrix4fv("model", model);
+    lightsShader.setUniformMatrix4fv("projection", proj);
+    lightsShader.setUniformMatrix4fv("view", view);
+
+    glBindVertexArray(lightsVertexData.vao);
+    glDrawElements(GL_TRIANGLES, 72, GL_UNSIGNED_INT, 0);
+}
+
+void Car::fillGBuffer(const glm::mat4& view, const glm::mat4& proj)
+{
+    updateModelMatrix();
+
+    gBufferShader.use();
+
+    gBufferShader.setUniformMatrix4fv("model", model);
+    gBufferShader.setUniformMatrix4fv("projection", proj);
+    gBufferShader.setUniformMatrix4fv("view", view);
+    glm::mat3 normMatrix = glm::mat3(glm::transpose(glm::inverse(model)));
+    gBufferShader.setUniformMatrix3fv("normMatrix", normMatrix);
+
+    gBufferShader.setUniform3f("material.ambient", 0.24725f, 0.1995f, 0.0745f);
+    gBufferShader.setUniform3f("material.diffuse", 0.75164f, 0.60648f, 0.22648f);
+    gBufferShader.setUniform3f("material.specular", 0.628281f, 0.555802f, 0.366065f);
+    gBufferShader.setUniform1f("material.shininess", 51.2f);
+
+    glBindVertexArray(bodyVertexData.vao);
+    glDrawElements(GL_TRIANGLES, 78, GL_UNSIGNED_INT, 0);
+}
+
+void Car::forwardRender(const glm::mat4& view, const glm::mat4& proj)
+{
+    lightsShader.use();
+
+    lightsShader.setUniformMatrix4fv("model", model);
+    lightsShader.setUniformMatrix4fv("projection", proj);
+    lightsShader.setUniformMatrix4fv("view", view);
+
+    glBindVertexArray(lightsVertexData.vao);
     glDrawElements(GL_TRIANGLES, 72, GL_UNSIGNED_INT, 0);
 }
 
@@ -274,32 +340,48 @@ void Car::Unslow()
     maxVelocity = globalMaxVelocity;
 }
 
-const float Car::getHeight()
+glm::vec3 *Car::getLightPositions() const
+{
+    glm::vec3* lightPositions = new glm::vec3[4];
+    const glm::vec4 leftHeadLight = glm::vec4(-0.45f, -0.1f, 0.2f, 1.0f);
+    const glm::vec4 rightHeadLight = glm::vec4(-0.45f, -0.1f, -0.2f, 1.0f);
+    const glm::vec4 leftTailLight = glm::vec4(0.45f, -0.1f, 0.2f, 1.0f);
+    const glm::vec4 rightTailLight = glm::vec4(0.45f, -0.1f, -0.2f, 1.0f);
+
+    lightPositions[0] = glm::vec3(model * leftHeadLight);
+    lightPositions[1] = glm::vec3(model * rightHeadLight);
+    lightPositions[2] = glm::vec3(model * leftTailLight);
+    lightPositions[3] = glm::vec3(model * rightTailLight);
+
+    return lightPositions;
+}
+
+float Car::getHeight() const
 {
     return height;
 }
 
-const float Car::getLength()
+float Car::getLength() const
 {
     return length;
 }
 
-const float Car::getWidth()
+float Car::getWidth() const
 {
     return width;
 }
 
-const float Car::getPosition()
+float Car::getPosition() const
 {
     return position;
 }
 
-const float Car::getVelocity()
+float Car::getVelocity() const
 {
     return velocity;
 }
 
-const float Car::getAcceleration()
+float Car::getAcceleration() const
 {
     return acceleration;
 }

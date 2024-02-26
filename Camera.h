@@ -9,10 +9,12 @@
 
 class Camera {
 private:
+	static const float cameraSpeed;
+	static const float sprintSpeed;
+
 	glm::vec3 cameraPos;
 	glm::vec3 cameraFront;
 	glm::vec3 cameraUp;
-	const float cameraSpeed;
 	bool firstMouse;
 	float yaw;
 	float pitch;
@@ -20,12 +22,13 @@ private:
 	float lastY;
 public:
 	Camera(int window_width, int window_height);
-	void moveForward(float deltaTime);
-	void moveBackward(float deltaTime);
-	void moveLeft(float deltaTime);
-	void moveRight(float deltaTime);
+	void moveForward(float deltaTime, bool isSprinting);
+	void moveBackward(float deltaTime, bool isSprinting);
+	void moveLeft(float deltaTime, bool isSprinting);
+	void moveRight(float deltaTime, bool isSprinting);
 	void handleMouseInput(double xpos, double ypos);
 	glm::mat4 getViewMatrix() const;
+	glm::vec3 getCameraPos() const;
 };
 
 #endif // !CAMERA_H

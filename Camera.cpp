@@ -1,36 +1,42 @@
 #include "Camera.h"
 
+const float Camera::cameraSpeed = 2.5f;
+const float Camera::sprintSpeed = 5.0f;
+
 Camera::Camera(int window_width, int window_height) :
-	cameraPos{glm::vec3(-4.0f, -3.0f, 1.5f)},
-	cameraFront{glm::vec3(1.0f, 0.0f, 0.0f)},
-	cameraUp{glm::vec3(0.0f, 1.0f, 0.0f)},
-	cameraSpeed{2.5f},
-    firstMouse{true},
-	yaw{-90.0f},
-	pitch{0.0f}
+    cameraPos{ glm::vec3(-4.0f, -3.0f, 1.5f) },
+    cameraFront{ glm::vec3(1.0f, 0.0f, 0.0f) },
+	cameraUp{ glm::vec3(0.0f, 1.0f, 0.0f) },
+    firstMouse{ true },
+	yaw{ 0.0f },
+	pitch{ 0.0f }
 {
 	lastX = window_width / 2.0;
 	lastY = window_height / 2.0;
 }
 
-void Camera::moveForward(float deltaTime)
+void Camera::moveForward(float deltaTime, bool isSprinting)
 {
-	cameraPos += cameraSpeed * deltaTime * cameraFront;
+    float speed = isSprinting ? sprintSpeed : cameraSpeed;
+	cameraPos += speed * deltaTime * cameraFront;
 }
 
-void Camera::moveBackward(float deltaTime)
+void Camera::moveBackward(float deltaTime, bool isSprinting)
 {
-	cameraPos -= cameraSpeed * deltaTime * cameraFront;
+    float speed = isSprinting ? sprintSpeed : cameraSpeed;
+	cameraPos -= speed * deltaTime * cameraFront;
 }
 
-void Camera::moveLeft(float deltaTime)
+void Camera::moveLeft(float deltaTime, bool isSprinting)
 {
-	cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+    float speed = isSprinting ? sprintSpeed : cameraSpeed;
+	cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * speed * deltaTime;
 }
 
-void Camera::moveRight(float deltaTime)
+void Camera::moveRight(float deltaTime, bool isSprinting)
 {
-	cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed * deltaTime;
+    float speed = isSprinting ? sprintSpeed : cameraSpeed;
+	cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * speed * deltaTime;
 }
 
 void Camera::handleMouseInput(double xpos, double ypos)
@@ -42,7 +48,7 @@ void Camera::handleMouseInput(double xpos, double ypos)
     }
 
     float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos; 
+    float yoffset = lastY - ypos;
     lastX = xpos;
     lastY = ypos;
 
@@ -70,4 +76,9 @@ void Camera::handleMouseInput(double xpos, double ypos)
 glm::mat4 Camera::getViewMatrix() const
 {
 	return glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+}
+
+glm::vec3 Camera::getCameraPos() const
+{
+    return cameraPos;
 }

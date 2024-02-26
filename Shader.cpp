@@ -5,6 +5,21 @@
 #include <sstream>
 #include <fstream>
 
+GLint Shader::getUniformLocation(const std::string &name) const
+{
+	auto it = uniformLocationCache.find(name);
+	if (it != uniformLocationCache.end()) {
+		return it->second;
+	}
+
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
+	if (loc == -1) {
+		std::cout << "ERROR: No uniform with name " << name << std::endl;
+	}
+	uniformLocationCache[name] = loc;
+	return loc;
+}
+
 Shader::Shader(const char *vertex, const char *fragment)
 {
 	// retrieve shader code from files
@@ -60,8 +75,32 @@ void Shader::use()
 	glUseProgram(ID);
 }
 
-void Shader::setUniformMatrix4fv(const char *name, const glm::mat4 &matrix) const
+void Shader::setUniformMatrix3fv(const std::string &name, const glm::mat3 &matrix) const
 {
-	int loc = glGetUniformLocation(this->ID, name);
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
+	glUniformMatrix3fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
+}
+
+void Shader::setUniformMatrix4fv(const std::string &name, const glm::mat4 &matrix) const
+{
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
 	glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(matrix));
+}
+
+void Shader::setUniform1f(const std::string &name, float value) const
+{
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
+	glUniform1f(loc, value);
+}
+
+void Shader::setUniform3f(const std::string &name, float v0, float v1, float v2) const
+{
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
+	glUniform3f(loc, v0, v1, v2);
+}
+
+void Shader::setUniform1i(const std::string& name, int value)
+{
+	GLint loc = glGetUniformLocation(this->ID, name.c_str());
+	glUniform1i(loc, value);
 }

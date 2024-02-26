@@ -2,7 +2,7 @@
 #define CAR_H
 
 #include "Shader.h"
-
+#include "VertexData.h"
 
 class Road;
 
@@ -26,29 +26,31 @@ private:
 	bool stopping;
 	Road *road;
 
-	unsigned int body_vao;
-	unsigned int body_vbo;
-	unsigned int body_ebo;
-	unsigned int lights_vao;
-	unsigned int lights_vbo;
-	unsigned int lights_ebo;
+	VertexData bodyVertexData;
+	VertexData lightsVertexData;
 	glm::mat4 model;
-	Shader shader;
+	Shader bodyShader;
+	Shader lightsShader;
+	Shader gBufferShader;
 public:
-	Car(Road *road);
+	Car(Road *road, float position);
 	void updatePosition(Car *lead);
 	void updateModelMatrix();
-	void render(const glm::mat4& view, const glm::mat4& proj);
+	void render(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &cameraPos);
+	void fillGBuffer(const glm::mat4 &view, const glm::mat4 &proj);
+	void forwardRender(const glm::mat4 &view, const glm::mat4 &proj);
 	void Stop();
 	void Unstop();
 	void Slow();
 	void Unslow();
-	const float getHeight();
-	const float getLength();
-	const float getWidth();
-	const float getPosition();
-	const float getVelocity();
-	const float getAcceleration();
+	// returns a dynamic array of size 4 (needs to be freed by caller)
+	glm::vec3 *getLightPositions() const;
+	float getHeight() const;
+	float getLength() const;
+	float getWidth() const;
+	float getPosition() const;
+	float getVelocity() const;
+	float getAcceleration() const;
 };
 
 #endif // !CAR_H
