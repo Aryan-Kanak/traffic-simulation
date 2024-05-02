@@ -190,6 +190,33 @@ Car::Car(Road *road, float position) :
     lightsVertexData = VertexData(lightVertices, sizeof(lightVertices), lightIndices, sizeof(lightIndices));
 
     updateModelMatrix();
+
+    // initialize light volumes
+    PointLight headlight = {};
+    headlight.constant = 1.0f;
+    headlight.linear = 0.7f;
+    headlight.quadratic = 1.8f;
+    headlight.ambient = glm::vec3(0.2f, 0.2f, 0.2f);
+    headlight.diffuse = glm::vec3(0.5f, 0.5f, 0.5f);
+    headlight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    PointLight taillight = {};
+    taillight.constant = 1.0f;
+    taillight.linear = 0.7f;
+    taillight.quadratic = 1.8f;
+    taillight.ambient = glm::vec3(0.2f, 0.0f, 0.0f);
+    taillight.diffuse = glm::vec3(0.5f, 0.0f, 0.0f);
+    taillight.specular = glm::vec3(1.0f, 0.0f, 0.0f);
+    lightVolumes[0] = new PointLightVolume(headlight);
+    lightVolumes[1] = new PointLightVolume(headlight);
+    lightVolumes[2] = new PointLightVolume(taillight);
+    lightVolumes[3] = new PointLightVolume(taillight);
+}
+
+Car::~Car()
+{
+    for (int i = 0; i < 4; ++i) {
+        delete lightVolumes[i];
+    }
 }
 
 void Car::updatePosition(Car *next)
@@ -308,6 +335,15 @@ void Car::fillGBuffer(const glm::mat4& view, const glm::mat4& proj)
     glDrawElements(GL_TRIANGLES, 78, GL_UNSIGNED_INT, 0);
 }
 
+void Car::renderLightVolumes(const glm::mat4& view, const glm::mat4& proj, const glm::vec3 &viewPos)
+{
+    glm::vec3* lightPositions = getLightPositions();
+    for (int i = 0; i < 4; ++i) {
+        lightVolumes[i]->render(view, proj, viewPos, lightPositions[i]);
+    }
+    delete[] lightPositions;
+}
+
 void Car::forwardRender(const glm::mat4& view, const glm::mat4& proj)
 {
     lightsShader.use();
@@ -340,6 +376,7 @@ void Car::Unslow()
     maxVelocity = globalMaxVelocity;
 }
 
+// caller must manually delete returned array
 glm::vec3 *Car::getLightPositions() const
 {
     glm::vec3* lightPositions = new glm::vec3[4];

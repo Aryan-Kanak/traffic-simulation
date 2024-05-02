@@ -183,6 +183,13 @@ void Road::fillGBuffer(const glm::mat4& view, const glm::mat4& proj)
 	}*/
 }
 
+void Road::renderLightVolumes(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &viewPos)
+{
+	for (int i = 0; i < cars.size(); ++i) {
+		cars[i]->renderLightVolumes(view, proj, viewPos);
+	}
+}
+
 void Road::forwardRender(const glm::mat4& view, const glm::mat4& proj)
 {
 	for (int i = 0; i < cars.size(); ++i) {
@@ -218,6 +225,7 @@ void Road::addTrafficLight(float position, State startState)
 	trafficLights.push_back(new TrafficLight(this, position, startState));
 }
 
+// caller must manually delete returned array
 glm::vec3* Road::getLightPositions() const
 {
 	glm::vec3 *lightPositions = new glm::vec3[4 * cars.size()];

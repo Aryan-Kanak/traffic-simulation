@@ -11,7 +11,7 @@
 #include "Road.h"
 #include "Skybox.h"
 #include "Moonlight.h"
-#include "Sphere.h"
+#include "PointLightVolume.h"
 
 const int WINDOW_WIDTH = 1200;
 const int WINDOW_HEIGHT = 600;
@@ -76,9 +76,6 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
     //glEnable(GL_CULL_FACE);
-
-    // sphere test
-    Sphere sphere(5, -3.0f, -3.0f, 1.5f, 18, 36);
 
     // setup skybox
     std::vector<std::string> faces{
@@ -230,28 +227,12 @@ int main()
 
         processInput(window, camera);
 
-        // get positions of point lights
-        glm::vec3 lightPositions[64];
-        for (int i = 0; i < roadsLen; ++i) {
-            glm::vec3 *curPositions = roads[i].getLightPositions();
-            for (int j = 0; j < 8; ++j) {
-                lightPositions[8 * i + j] = curPositions[j];
-            }
-            delete[] curPositions;
-        }
-
-        // render scene completely with forward rendering
-        /*glm::mat4 view = camera.getViewMatrix();
-        glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
-        for (int i = 0; i < roadsLen; ++i) {
-            roads[i].render(view, projection, camera.getCameraPos(), lightPositions);
-            roads[i].update(deltaTime);
-        }
-        skybox.render(skyboxView, projection);*/
-
         // bind and fill G-buffer
         glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+        glDepthMask(GL_TRUE);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
         for (int i = 0; i < roadsLen; ++i) {
@@ -260,10 +241,16 @@ int main()
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // calculate lighting
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDepthMask(GL_FALSE);
+        glDisable(GL_DEPTH_TEST);
 
-        deferredShadingShader.use();
+        glm::vec3 viewPos = camera.getCameraPos();
+        
+        // render light volumes
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_ONE, GL_ONE);
+
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
         glActiveTexture(GL_TEXTURE1);
@@ -273,44 +260,17 @@ int main()
         glActiveTexture(GL_TEXTURE3);
         glBindTexture(GL_TEXTURE_2D, gSpecular);
 
-        glm::vec3 viewPos = camera.getCameraPos();
-        deferredShadingShader.setUniform3f("viewPos", viewPos.x, viewPos.y, viewPos.z);
-
-        // set moonlight properties
-        Moonlight::SetMoonlightUniforms(deferredShadingShader);
-
-        // set point light properties
-        for (int i = 0; i < 1; ++i) {
-            std::string uniformName = "pointLights[" + std::to_string(i) + "].position";
-            deferredShadingShader.setUniform3f(uniformName, lightPositions[i].x, lightPositions[i].y, lightPositions[i].z);
-            uniformName = "pointLights[" + std::to_string(i) + "].constant";
-            deferredShadingShader.setUniform1f(uniformName, 1.0f);
-            uniformName = "pointLights[" + std::to_string(i) + "].linear";
-            deferredShadingShader.setUniform1f(uniformName, 0.7f);
-            uniformName = "pointLights[" + std::to_string(i) + "].quadratic";
-            deferredShadingShader.setUniform1f(uniformName, 1.8f);
-            if (i % 4 == 0 || i % 4 == 1) {
-                // headlight
-                uniformName = "pointLights[" + std::to_string(i) + "].ambient";
-                deferredShadingShader.setUniform3f(uniformName, 0.2f, 0.2f, 0.2f);
-                uniformName = "pointLights[" + std::to_string(i) + "].diffuse";
-                deferredShadingShader.setUniform3f(uniformName, 0.5f, 0.5f, 0.5f);
-                uniformName = "pointLights[" + std::to_string(i) + "].specular";
-                deferredShadingShader.setUniform3f(uniformName, 1.0f, 1.0f, 1.0f);
-            }
-            else {
-                // taillight
-                uniformName = "pointLights[" + std::to_string(i) + "].ambient";
-                deferredShadingShader.setUniform3f(uniformName, 0.2f, 0.0f, 0.0f);
-                uniformName = "pointLights[" + std::to_string(i) + "].diffuse";
-                deferredShadingShader.setUniform3f(uniformName, 0.5f, 0.0f, 0.0f);
-                uniformName = "pointLights[" + std::to_string(i) + "].specular";
-                deferredShadingShader.setUniform3f(uniformName, 1.0f, 0.0f, 0.0f);
-            }
+        for (int i = 0; i < roadsLen; ++i) {
+            roads[i].renderLightVolumes(view, projection, viewPos);
         }
 
-        glBindVertexArray(quadVAO);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        deferredShadingShader.use();
+        deferredShadingShader.setUniform3f("viewPos", viewPos.x, viewPos.y, viewPos.z);
+
+        // render moonlight
+        Moonlight::SetMoonlightUniforms(deferredShadingShader);
+        /*glBindVertexArray(quadVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);*/
 
         // copy depth buffer data
         glBindFramebuffer(GL_READ_FRAMEBUFFER, gBuffer);
@@ -319,11 +279,13 @@ int main()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // forward render
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
         for (int i = 0; i < roadsLen; ++i) {
             roads[i].forwardRender(view, projection);
         }
         //skybox.render(skyboxView, projection);
-        sphere.render(view, projection);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

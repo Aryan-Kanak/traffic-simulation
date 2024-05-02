@@ -34,6 +34,7 @@ public:
 	void update(float deltaTime);
 	void render(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &cameraPos, const glm::vec3 *lightPositions);
 	void fillGBuffer(const glm::mat4 &view, const glm::mat4 &proj);
+	void renderLightVolumes(const glm::mat4& view, const glm::mat4 &proj, const glm::vec3 &viewPos);
 	void forwardRender(const glm::mat4& view, const glm::mat4& proj);
 	void renderCars(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &cameraPos);
 	void renderTrafficLights(const glm::mat4 &view, const glm::mat4 &proj);

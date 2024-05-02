@@ -3,6 +3,7 @@
 
 #include "Shader.h"
 #include "VertexData.h"
+#include "PointLightVolume.h"
 
 class Road;
 
@@ -32,12 +33,15 @@ private:
 	Shader bodyShader;
 	Shader lightsShader;
 	Shader gBufferShader;
+	PointLightVolume* lightVolumes[4];
 public:
 	Car(Road *road, float position);
+	~Car();
 	void updatePosition(Car *lead);
 	void updateModelMatrix();
 	void render(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &cameraPos);
 	void fillGBuffer(const glm::mat4 &view, const glm::mat4 &proj);
+	void renderLightVolumes(const glm::mat4 &view, const glm::mat4 &proj, const glm::vec3 &viewPos);
 	void forwardRender(const glm::mat4 &view, const glm::mat4 &proj);
 	void Stop();
 	void Unstop();

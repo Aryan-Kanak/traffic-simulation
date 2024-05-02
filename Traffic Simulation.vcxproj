@@ -158,7 +158,7 @@
     <ClCompile Include="Road.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Skybox.cpp" />
-    <ClCompile Include="Sphere.cpp" />
+    <ClCompile Include="PointLightVolume.cpp" />
     <ClCompile Include="stb_image.cpp" />
     <ClCompile Include="TrafficLight.cpp" />
     <ClCompile Include="Vehicle.cpp" />
@@ -185,7 +185,7 @@
     <ClInclude Include="Road.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Skybox.h" />
-    <ClInclude Include="Sphere.h" />
+    <ClInclude Include="PointLightVolume.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="TrafficLight.h" />
     <ClInclude Include="Vehicle.h" />
